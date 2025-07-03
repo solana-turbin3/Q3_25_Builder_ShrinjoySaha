@@ -16,11 +16,21 @@ umi.use(mplTokenMetadata())
 const mint = generateSigner(umi);
 
 (async () => {
-    // let tx = ???
-    // let result = await tx.sendAndConfirm(umi);
-    // const signature = base58.encode(result.signature);
-    
-    // console.log(`Succesfully Minted! Check out your TX here:\nhttps://explorer.solana.com/tx/${signature}?cluster=devnet`)
 
+    let tx = createNft(umi, {
+        mint,
+        name: "Jeff Rug - Lets Go",
+        uri: "https://devnet.irys.xyz/FqXcDR9qrUSDD7MM5wJLXPwWMwQnA7GoyFFtNgbvufA4",
+        sellerFeeBasisPoints: percentAmount(5),
+        symbol: "JR",
+    });
+
+    let result = await tx.sendAndConfirm(umi);
+    const signature = base58.encode(result.signature);
+    
+    console.log(`Succesfully Minted! Check out your TX here:\nhttps://explorer.solana.com/tx/${signature}?cluster=devnet`)
     console.log("Mint Address: ", mint.publicKey);
+
+    // https://explorer.solana.com/tx/5wVrtLMWDagUjwE9U4gjYgRX1KWsX1f9MPM66pryztfguV1uQfji2X6GSdW3appJgqgFmKa3nt3GfgjRYmCFUBPn?cluster=devnet
+    // Mint Address:  6PQJWf2UWCz1WQH2foc2Nc7JK58FTumByh6by7tdfP3t
 })();
