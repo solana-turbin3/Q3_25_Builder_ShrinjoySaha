@@ -1,4 +1,10 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    metadata:: {self, mpl_token_metadata::instructions::{FreezeDelegatedAccountCpi, FreezeDelegatedAccountCpiAccounts}}
+};
+
+use crate::{StackAccount, StakeConfig, UserConfig};
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
@@ -42,13 +48,86 @@ pub struct Stake<'info> {
     )]
     pub edition: Account<'info, MetadataAccount>,
 
-        #[account(
+    #[account(
         seeds = [b"config"],
         bump = config.bump,
     )]
     pub config: Account<'info, StakeConfig>,
 
+    #[account(
+        mut,
+        seeds = [b"user", user.key().as_ref()],
+        bump = user_account.bump,
+    )]
+    pub user_account: Account<'info, UserAccount>,
+
+    #[account(
+        init,
+        payer = user,
+        space = 8 + StackAccount::INIT_SPACE,
+        seeds = [b"stake", mint.key().as_ref(), config.key().as_ref()]
+    )]
+    pub stake_account: Account<'info, StackAccount>,
+
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub metadata_program: Program<'info, Metadata>,
+}
+
+impl<'info> Stake<'info> {
+    pub fn stake(&mut self, bumps: &StakeBumps) -> Result<()> {
+        require!(
+            self.user_account.account_staked < self.config.max_stake,
+            StakeError::MaxStakeReached
+        );
+
+        self.stake_account.set_inner(StakeAccount {
+            owner: self.user.key(),
+            mint: self.mint.key(),
+            staked_at: Clock::get()?.unix_timestamp,
+            bump: bumps.stake_account,
+        });
+
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_program = Approve {
+            to: self.user_mint_ata.to_account_info(),
+            delegate: self.stake_account.to_account_info(),
+            authority: self.user.to_account_info(),
+        };
+
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+
+        approve(cpi_ctx, 1)?;
+
+        let seeds = &[
+            b"stake",
+            self.mint.to_account_info().key.as_ref(),
+            self.config.to_account_info().key.as_ref(),
+            &[self.stake_account.bump]
+        ];
+        let signer_seeds = &[&seeds[..]];
+
+        let delegate = &self.stake_account.to_account_info();
+        let token_account = &self.mint_ata.to_account_info();
+        let edition = &self.edition.to_account_info();
+        let mint = &self.mint.to_account_info();
+        let token_program = &self.token_program.to_account_info();
+        let metadata_program = &self.metadata_program.to_account_info();
+
+        FreezeDelegatedAccountCpi::new(
+            metadata_program,
+            accounts: FreezeDelegatedAccountCpiAccounts {
+                delegate,
+                token_account,
+                edition,
+                mint,
+                token_program,
+            },
+        ).invoke_signed(signer_seeds)?;
+
+        self.user_account.amount_staked += 1;
+
+        ok(())
+    }
 }

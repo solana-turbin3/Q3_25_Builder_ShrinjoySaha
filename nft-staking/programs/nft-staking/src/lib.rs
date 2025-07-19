@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+use instructions::*;
 
 declare_id!("8X9ion7wCT5iJDtT7GEmEr6UrkJ6Ewi66tkJzVXXnMZZ");
 
