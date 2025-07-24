@@ -52,7 +52,6 @@ pub struct DelistNFT<'info> {
 impl<'info> DelistNFT<'info> {
     // Transfer the NFT from seller to listing Vault
     pub fn transfer_back_nft(&mut self) -> Result<()>{
-
         let marketplace = self.marketplace.key();
         let seller = self.seller.key();
 
