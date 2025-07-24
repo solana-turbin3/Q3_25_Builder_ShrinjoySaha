@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken,
     token:: {Token, TransferChecked, transfer_checked},
     token_interface::{Mint, TokenAccount}
 };
@@ -8,25 +7,23 @@ use anchor_spl::{
 use crate::states::{Marketplace, Listing};
 
 #[derive(Accounts)]
-pub struct ListNFT<'info> {
+pub struct DelistNFT<'info> {
     pub nft: InterfaceAccount<'info, Mint>,
 
     #[account(
-        init,
-        payer = seller,
-        space = Listing::INIT_SPACE,
+        mut,
         seeds = [
             b"listing",
             marketplace.key().as_ref(),
             seller.key().as_ref(),
         ],
-        bump
+        bump = listing.bump,
+        close = seller,
     )]
     pub listing: Account<'info, Listing>,
 
     #[account(
-        init,
-        payer = seller,
+        mut,
         associated_token::mint = nft,
         associated_token::authority = listing
     )]
@@ -44,39 +41,40 @@ pub struct ListNFT<'info> {
 
     #[account(
         seeds = [b"marketplace"],
-        bump = marketplace.bump
+        bump
     )]
     pub marketplace: Account<'info, Marketplace>,
 
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
-impl<'info> ListNFT<'info> {
+impl<'info> DelistNFT<'info> {
     // Transfer the NFT from seller to listing Vault
-    pub fn transfer_nft(&mut self) -> Result<()>{
-        let cpi_ctx = CpiContext::new(
+    pub fn transfer_back_nft(&mut self) -> Result<()>{
+
+        let marketplace = self.marketplace.key();
+        let seller = self.seller.key();
+
+        let listing_seeds: &[&[u8]] = &[
+            b"listing",
+            marketplace.as_ref(),
+            seller.as_ref(),
+            &[self.listing.bump],
+        ];
+        let signer = &[listing_seeds];
+
+        let cpi_ctx = CpiContext::new_with_signer(
             self.token_program.to_account_info(),
             TransferChecked {
-                from: self.seller_token_account.to_account_info(),
-                to: self.listing_token_account.to_account_info(),
-                mint: self.nft.to_account_info(),
-                authority: self.seller.to_account_info()
-            }
+                from: self.listing_token_account.to_account_info(),
+                to: self.seller_token_account.to_account_info(),
+                mint: self.listing.to_account_info(),
+                authority: self.nft.to_account_info()
+            },
+            signer
         );
 
         transfer_checked(cpi_ctx, 1, 0)
-    }
-
-    // Initialize the listing
-    pub fn initialize_listing(&mut self, price: u64, bumps: ListNFTBumps) -> Result<()> {
-        self.listing.set_inner(Listing {
-            seller: self.seller.key(),
-            mint: self.nft.key(),
-            price,
-            bump: bumps.listing,
-        });
-        Ok(())
     }
 }
