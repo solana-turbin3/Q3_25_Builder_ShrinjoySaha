@@ -1,4 +1,7 @@
-use anchor_lang::{prelude::*, system_program::{Transfer, transfer}};
+use anchor_lang::{
+    prelude::*,
+    system_program::{Transfer, transfer}
+};
 use anchor_spl::{
     associated_token::AssociatedToken,
     token:: {Token, TransferChecked, transfer_checked},
@@ -34,13 +37,15 @@ pub struct PurchaseNFT<'info> {
     pub buyer: Signer<'info>,
 
     #[account(
-        mut,
+        init_if_needed,
+        payer = buyer,
         associated_token::mint = nft,
         associated_token::authority = buyer,
     )]
     pub buyer_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Selller Account if validated in the handler
+    #[account(mut)]
     pub seller: AccountInfo<'info>,
 
     #[account(
@@ -52,7 +57,7 @@ pub struct PurchaseNFT<'info> {
     #[account(
         mut,
         seeds = [b"treasury", marketplace.key().as_ref()],
-        bump
+        bump = marketplace.treasury_bump
     )]
     pub treasury: SystemAccount<'info>,
 
@@ -80,8 +85,8 @@ impl<'info> PurchaseNFT<'info> {
             TransferChecked {
                 from: self.listing_token_account.to_account_info(),
                 to: self.buyer_token_account.to_account_info(),
-                mint: self.listing.to_account_info(),
-                authority: self.nft.to_account_info()
+                mint: self.nft.to_account_info(),
+                authority: self.listing.to_account_info()
             },
             signer
         );
@@ -104,26 +109,26 @@ impl<'info> PurchaseNFT<'info> {
             .ok_or(MarketplaceError::MathOverFlow)?;
 
         // transfer to treasury
-        let cpi_ctx = CpiContext::new(
-            self.token_program.to_account_info(),
+        let treasury_transfer_ctx = CpiContext::new(
+            self.system_program.to_account_info(),
             Transfer {
                 from: self.buyer.to_account_info(),
                 to: self.treasury.to_account_info()
             },
         );
 
-        transfer(cpi_ctx, fees_lamports);
+        transfer(treasury_transfer_ctx, fees_lamports);
         
         // transfer to seller
-        let cpi_ctx = CpiContext::new(
+        let seller_transfer_ctx = CpiContext::new(
             self.token_program.to_account_info(),
             Transfer {
-                from: self.buyer.to_account_info(),
+                from: self.system_program.to_account_info(),
                 to: self.seller.to_account_info()
             },
         );
 
-        transfer(cpi_ctx, seller_lamports);
+        transfer(seller_transfer_ctx, seller_lamports);
 
         Ok(())
     }
