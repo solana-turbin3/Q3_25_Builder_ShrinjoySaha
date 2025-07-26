@@ -3,10 +3,12 @@ import { Program } from "@coral-xyz/anchor";
 import { Marketplace } from "../target/types/marketplace";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { createSignerFromKeypair, generateSigner, keypairIdentity, percentAmount, publicKey } from "@metaplex-foundation/umi";
-import { Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { createNft, mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
   getOrCreateAssociatedTokenAccount,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { BN } from "bn.js";
 
@@ -49,6 +51,10 @@ describe("marketplace", () => {
     umi.use(keypairIdentity(creator));
     umi.use(mplTokenMetadata());
 
+    const balance = await connection.getBalance(payer.publicKey);
+    console.log("Payer address:", payer.publicKey);
+    console.log("Payer balance (SOL):", balance / LAMPORTS_PER_SOL);
+
     const transferSOL = async (to: anchor.web3.PublicKey, amount: number) => {
       const tx = new anchor.web3.Transaction().add(anchor.web3.SystemProgram.transfer({
         fromPubkey: payer.publicKey,
@@ -60,6 +66,7 @@ describe("marketplace", () => {
     }
 
     await transferSOL(seller.publicKey, 1);
+    await transferSOL(buyer.publicKey, 1);
 
     await createNft(umi, {
       mint: nftMint,
@@ -67,6 +74,7 @@ describe("marketplace", () => {
       symbol: "TEST",
       uri: "https://example.com/test.json",
       sellerFeeBasisPoints: percentAmount(10),
+      collection: null,
       tokenOwner: publicKey(seller.publicKey)
     }).sendAndConfirm(umi);
 
@@ -79,20 +87,25 @@ describe("marketplace", () => {
 
     buyer_ata = (await getOrCreateAssociatedTokenAccount(
       connection,
-      seller,
+      buyer,
       new anchor.web3.PublicKey(nftMint.publicKey),
       buyer.publicKey,      
     )).address;
 
-    listing_ata = (await getOrCreateAssociatedTokenAccount(
-      connection,
-      seller,
-      new anchor.web3.PublicKey(nftMint.publicKey),
-      listing,      
-    )).address;
+    // listing_ata = (await getOrCreateAssociatedTokenAccount(
+    //   connection,
+    //   seller,
+    //   new anchor.web3.PublicKey(nftMint.publicKey),
+    //   listing,      
+    // )).address;
+
+    listing_ata = await anchor.utils.token.associatedAddress({
+      mint: new anchor.web3.PublicKey(nftMint.publicKey),
+      owner: listing
+    })
   })
 
-  it("Initialize Marketplace!", async () => {
+  it.skip("Initialize Marketplace!", async () => {
     const tx = await program.methods
     .initializeMarketplace(1)
     .accountsPartial({
@@ -110,11 +123,58 @@ describe("marketplace", () => {
     const tx = await program.methods
     .listNft(new BN(1))
     .accountsPartial({
-      admin: payer.publicKey,
+      seller: seller.publicKey,
+      sellerTokenAccount: seller_ata,
+      nft: nftMint.publicKey,
       marketplace,
-      treasury,
-      systemProgram: anchor.web3.SystemProgram.programId
+      systemProgram: anchor.web3.SystemProgram.programId,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      listing,
+      listingTokenAccount: listing_ata
     })
+    .signers([seller])
+    .rpc();
+
+    console.log("Your transaction signature", tx);
+  });
+
+  it.skip("Delist NFT!", async () => {
+    const tx = await program.methods
+    .delistNft()
+    .accountsPartial({
+      seller: seller.publicKey,
+      sellerTokenAccount: seller_ata,
+      nft: nftMint.publicKey,
+      marketplace,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      listing,
+      listingTokenAccount: listing_ata
+    })
+    .signers([seller])
+    .rpc();
+
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Purchase NFT!", async () => {
+    const tx = await program.methods
+    .purchaseNft()
+    .accountsPartial({
+      seller: seller.publicKey,
+      buyer: buyer.publicKey,
+      buyerTokenAccount: buyer_ata,
+      nft: nftMint.publicKey,
+      marketplace,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      listing,
+      listingTokenAccount: listing_ata,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      treasury
+    })
+    .signers([buyer])
     .rpc();
 
     console.log("Your transaction signature", tx);

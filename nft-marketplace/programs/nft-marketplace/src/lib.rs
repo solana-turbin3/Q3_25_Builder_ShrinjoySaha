@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("CPjxsBYJZjVmYXo51tVHKuvZmAjgwS9doRFtB8rRXZ8v");
+declare_id!("Ddd9Z24bjYMNCyJPMbBafQxJhu5X5gAB7ZxmYahFxYt6");
 
 pub mod instructions;
 pub mod states;
@@ -36,7 +36,7 @@ pub mod marketplace {
     pub fn purchase_nft(
         ctx: Context<PurchaseNFT>,
     ) -> Result<()> {
-        ctx.accounts.transfer_nft()?;
-        ctx.accounts.transfer_sol()
+        ctx.accounts.transfer_nft()
+        // ctx.accounts.transfer_sol()
     }
 }

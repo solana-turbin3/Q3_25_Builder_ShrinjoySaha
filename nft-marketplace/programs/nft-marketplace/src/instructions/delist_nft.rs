@@ -68,8 +68,8 @@ impl<'info> DelistNFT<'info> {
             TransferChecked {
                 from: self.listing_token_account.to_account_info(),
                 to: self.seller_token_account.to_account_info(),
-                mint: self.listing.to_account_info(),
-                authority: self.nft.to_account_info()
+                mint: self.nft.to_account_info(),
+                authority: self.listing.to_account_info()
             },
             signer
         );
