@@ -14,7 +14,7 @@ pub struct ListNFT<'info> {
     #[account(
         init,
         payer = seller,
-        space = Listing::INIT_SPACE,
+        space = 8 + Listing::INIT_SPACE,
         seeds = [
             b"listing",
             marketplace.key().as_ref(),
@@ -44,7 +44,7 @@ pub struct ListNFT<'info> {
 
     #[account(
         seeds = [b"marketplace"],
-        bump = marketplace.bump
+        bump= marketplace.bump
     )]
     pub marketplace: Account<'info, Marketplace>,
 
