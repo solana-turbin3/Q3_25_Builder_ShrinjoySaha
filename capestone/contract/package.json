@@ -2,10 +2,15 @@
   "license": "ISC",
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
-    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet",
+    "deploy:local": "anchor deploy --provider.cluster localnet",
+    "test:local": "NODE_NO_WARNINGS=1 anchor test --provider.cluster localnet --skip-local-validator --skip-deploy --skip-build",
+    "test:devnet": "NODE_NO_WARNINGS=1 anchor test --provider.cluster devnet --skip-local-validator --skip-deploy --skip-build"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
     "@solana/spl-token": "^0.4.13"
   },
   "devDependencies": {

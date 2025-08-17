@@ -8,13 +8,17 @@ import {
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { expect } from "chai";
 
+const METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
 describe("nft_program", () => {
-  // Configure the client
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.NftProgram as Program<NftProgram>;
   const payer = provider.wallet as anchor.Wallet;
+
+  const wallet = provider.wallet;
+  console.log("My public key:", wallet.publicKey.toBase58());
 
   it("creates a single NFT", async () => {
     const id = new anchor.BN(1);
@@ -28,24 +32,23 @@ describe("nft_program", () => {
       payer.publicKey
     );
 
-    // Metadata PDA
     const [metadata] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        anchor.utils.token.METADATA_PROGRAM_ID.toBuffer(),
+        METADATA_PROGRAM_ID.toBuffer(),
         mint.toBuffer(),
       ],
-      anchor.utils.token.METADATA_PROGRAM_ID
+      METADATA_PROGRAM_ID
     );
 
     const [masterEdition] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        anchor.utils.token.METADATA_PROGRAM_ID.toBuffer(),
+        METADATA_PROGRAM_ID.toBuffer(),
         mint.toBuffer(),
         Buffer.from("edition"),
       ],
-      anchor.utils.token.METADATA_PROGRAM_ID
+      METADATA_PROGRAM_ID
     );
 
     await program.methods
@@ -67,13 +70,12 @@ describe("nft_program", () => {
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         systemProgram: SystemProgram.programId,
         tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-        metadataProgram: anchor.utils.token.METADATA_PROGRAM_ID,
+        metadataProgram: METADATA_PROGRAM_ID,
         masterEditionAccount: masterEdition,
         nftMetadata: metadata,
       })
       .rpc();
 
-    // Confirm token account exists and has 1 token
     const tokenAcc = await getAccount(provider.connection, tokenAccount);
     expect(Number(tokenAcc.amount)).to.equal(1);
   });
@@ -99,23 +101,22 @@ describe("nft_program", () => {
     const [metadata] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        anchor.utils.token.METADATA_PROGRAM_ID.toBuffer(),
+        METADATA_PROGRAM_ID.toBuffer(),
         mint.toBuffer(),
       ],
-      anchor.utils.token.METADATA_PROGRAM_ID
+      METADATA_PROGRAM_ID
     );
 
     const [masterEdition] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("metadata"),
-        anchor.utils.token.METADATA_PROGRAM_ID.toBuffer(),
+        METADATA_PROGRAM_ID.toBuffer(),
         mint.toBuffer(),
         Buffer.from("edition"),
       ],
-      anchor.utils.token.METADATA_PROGRAM_ID
+      METADATA_PROGRAM_ID
     );
 
-    // Mock collection PDA (in real case you’d create a collection NFT first)
     const collection = anchor.web3.Keypair.generate();
 
     await program.methods
@@ -138,14 +139,13 @@ describe("nft_program", () => {
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         systemProgram: SystemProgram.programId,
         tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
-        metadataProgram: anchor.utils.token.METADATA_PROGRAM_ID,
+        metadataProgram: METADATA_PROGRAM_ID,
         masterEditionAccount: masterEdition,
         nftMetadata: metadata,
-        collection: collection.publicKey, // just passing random key for test
+        collection: collection.publicKey,
       })
       .rpc();
-
-    // Confirm token account exists and has 1 token
+    
     const tokenAcc = await getAccount(provider.connection, tokenAccount);
     expect(Number(tokenAcc.amount)).to.equal(1);
   });
